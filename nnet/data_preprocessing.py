@@ -5,6 +5,9 @@ from tqdm import tqdm
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 import argparse
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import one_hot
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 def reduce_mem_usage(df):
     """ iterate through all the columns of a dataframe and modify the data type
@@ -141,17 +144,40 @@ def create_dataset(agg_sales_all, calendar_file, start_day, lags):
     del agg_melt; gc.collect()
     print('dataset shape:', sales_calendar_merge.shape)
 
+    return sales_calendar_merge
 
-  return(sales_calendar_merge)
+def one_hot_fn(id_arr, ret_vocab = False):
+    """
+    prepares one-hot encoding of id values, will be used later on 
+    for learning embeddings of ids. 
+    """
+
+    unique_ids = id_arr.unique()
+    len_unique_ids = id_arr.value_counts().set_axis(unique_ids).values 
+    stri_split = tf.strings.split(unique_ids, sep = "_")
+    vocab, idx = tf.unique(stri_split.flat_values)
+    encoded_ids = [one_hot(d, tf.size(vocab).numpy()) for d in unique_ids]
+    max_length = np.max([len(i) for i in encoded_ids])
+    padded_encoded = np.array(pad_sequences(encoded_ids, maxlen=max_length, padding='post'))
+    padded_encoded = np.repeat(padded_encoded, len_unique_ids, axis = 0)
+
+    if ret_vocab:
+        return padded_encoded, vocab 
+    else:
+        return padded_encoded
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('sales_file', type=str, help = 'path of sales data')
     parser.add_argument('calendar_file', type=str, help = 'path of calendar data')
     parser.add_argument('-s','--start' type=int, help = 'day to start for truncation')
-    parser.add_argument('-l','--lag' nargs ='+', help = 'day to start for truncation')
+    parser.add_argument('-d','--dir' type=str, help = 'directory to store data')
 
     args = parser.parse_args()
+
+    # load needed data
     calendar = pd.read_csv(args.calendar_file)
     sales = pd.read_csv(args.sales_file)
 
@@ -180,3 +206,57 @@ if __name__ == '__main__':
     d_cols_eval = ['d_' + str(i) for i in range(1942, 1970)] 
     for d in d_cols_eval:
     agg_sales_all[d] = np.nan 
+
+    dataset = create_dataset(
+        start_day=1000, 
+        lags=[28, 35, 42, 49, 56, 63])
+
+    # standardizing values
+    dataset['year'] -= 2011
+    scaler = StandardScaler()
+    day_of_year = np.arange(1, 366).reshape((-1, 1)) 
+    scaler.fit(day_of_year)
+    dataset['day_of_year_s'] = scaler.transform(
+        dataset.day_of_year.values.reshape(-1, 1))
+
+    # divide dataset into train, validation, and evaluation
+    train_data = dataset[dataset.day <= 1913]
+    train_data = train_data[np.isfinite(train_data.wt)]
+    validation_data = dataset[np.logical_and(dataset.day <= 1941, dataset.day > 1913)]
+    evaluation_data = dataset[np.logical_and(dataset.day > 1941, dataset.day <= 1969)]
+
+    # one hot encode id values
+    train_id_enc, vocab = one_hot_fn(train_data['id'], ret_vocab = True)
+    validation_id_enc = one_hot_fn(validation_data['id'])
+    eval_id_enc = one_hot_fn(evaluation_data['id'])
+
+    print(train_id_enc.shape, 
+    validation_id_enc.shape, 
+    eval_id_enc.shape)
+
+    # wrap into a dictionary for keras model fitting
+    train_data_dict = {'ts_id_input': train_id_enc, 
+                       'ts_features':train_data}
+    val_data_dict = {'ts_id_input': validation_id_enc, 
+                    'ts_features': validation_data}
+    eval_data_dict = {'ts_id_input': eval_id_enc, 
+                    'ts_features': validation_data}
+
+    dir_to_save = f'{os.getcwd()}/{args.dir}'
+    dict_list = [trian_data_dict, val_data_dict, eval_data_dict]
+    dict_names = ['train_data.pkl', 'validation_data.pkl', 'evaluation_data.pkl']
+
+    # saving to pickle
+    for _dict, dict_name in zip(dict_list, dict_name):
+        with open(dict_name, 'wb') as f:
+            pickle.dump(_dict, f)
+
+
+
+
+
+
+
+
+    
+

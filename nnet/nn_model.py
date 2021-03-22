@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import argparse
+import pickle
+import pandas as pd
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.text import one_hot
@@ -80,23 +82,42 @@ def create_model(feat_vars, n_hidden_layers, hidden_units, lr):
   return(model)
 
   if __name__ == '__main__':
-    feat_vars = dataset.columns[~dataset.columns.isin(
-        ['id', 'sales', 'scaled', 'wt', 'day_of_year', 'day'])]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('proc_data_path', type=str, help = 'path to processed data')
+    parser.add_argument('-hu', '--num_hidden_units', type=int, default=200, help = 'number of hidden units')
+    parser.add_argument('-hl', '--num_hidden_layers', type=int, default=3, help = 'number of hidden layers')
+    parser.add_argument('-lr', '--learning_rate', type=float, default=0.001, help = 'learning rate')
+    parser.add_argument('-f', '--features', nargs ="+", type=str, default=['day_of_year', 'year'], help = 'feature list')
+    parser.add_argument('-w','--weights_file', type=str, help = 'path to save weights')
+
+    args = parser.parse_args()
+    feat_vars = ['id', 'sales','scaled', 'wt'] + args.features
 
     # create the model    
-    model = create_model(n_hidden_layers = 3, hidden_units = 500, lr = 0.00005)    
+    model = create_model(feat_vars, n_hidden_layers = args.num_hidden_layers, 
+    hidden_units = args.num_hidden_units, lr = args.learning_rate) 
 
     #setup other params
-    ckpt = ModelCheckpoint("weights.h5", monitor='val_loss', verbose=1, save_best_only=True,mode='min')
+
+    ckpt = ModelCheckpoint(args.weights_file, 
+    monitor='val_loss', verbose=1, save_best_only=True,mode='min')
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2,
                                 patience=2, min_lr=0.00001)
     es = EarlyStopping(monitor='val_loss', patience=5)
     keras.backend.clear_session()
-    train_data_dict = {'ts_id_input': train_id_enc, 
-                    'ts_features':train_data[feat_vars]}
-    val_data_dict = {'ts_id_input': validation_id_enc, 
-                    'ts_features': validation_data[feat_vars]}
+
+    # load data dcits from proc_data_path
+    data_dict_paths = os.listdir(args.proc_data_path)
+    _dict_names = [s.replace('.pkl', '') for s in data_dict_paths]
+    data_dict = {}
+
+    for f, dict_name in zip(data_dict_paths, _dict_names):
+      with open(f, 'rb') as _file:
+        _dict = pickle.load(f)
+        _dict['ts_features'] = _dict['ts_features'].loc[:, feat_vars]
+        data_dict[dict_name] = _dict 
+
                     
-    history = model.fit(x = train_data_dict, y = train_data['scaled'].values, 
-            validation_data = (val_data_dict, validation_data['scaled'].values), 
+    history = model.fit(x = data_dict['train_data'], y = train_data['scaled'].values, 
+            validation_data = (data_dict['val_data'], validation_data['scaled'].values), 
             batch_size = 200_000, epochs = 20, callbacks = [ckpt, reduce_lr, es])
