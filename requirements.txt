@@ -1,4 +1,4 @@
 pandas==1.2.3
 scikit-learn==0.24.1
 tqdm==4.59.0
-tensorflow==
+tensorflow==2.4.1
