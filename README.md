@@ -11,14 +11,12 @@ This method aims to train a meta-learner that learns the appropriate weights to 
 to each individual model forecast. Since we are also interested on the uncertainty quantiles, 
 we want to optimize the forecast loss: 
 
-![](https://latex.codecogs.com/gif.latex?\sum_{n=1}^{N}{\sum^{M}_{m=1}{\alpha(F_n)l_{nm}}})
+<p align="center"><img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/644c43014a081a4d89adeaa4dc8dded7.svg?invert_in_darkmode" align=middle width=126.1344216pt height=47.60747145pt/></p>
 
-Where $l_{nm}$ is the loss at time step $n$, for individual model $m$ 
-and $\alpha(F_n)$ is the weight function with predictors $F_n$. 
-
+Where <img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/c0984ec57b5102d9ca962e9c3e67d4a8.svg?invert_in_darkmode" align=middle width=24.695747999999988pt height=22.831056599999986pt/> is the loss at time step <img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/55a049b8f161ae7cfeb0197d75aff967.svg?invert_in_darkmode" align=middle width=9.86687624999999pt height=14.15524440000002pt/>, for individual model <img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/0e51a2dede42189d77627c4d742822c3.svg?invert_in_darkmode" align=middle width=14.433101099999991pt height=14.15524440000002pt/> 
+and <img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/d2392d2717cb1369b798f978cff33235.svg?invert_in_darkmode" align=middle width=42.88066694999999pt height=24.65753399999998pt/> is the weight function with predictors <img src="https://rawgit.com/aldencabajar/M5-Competition-MetaLearning/master/svgs/c9c53a99901c4a67544997f70b0f01bc.svg?invert_in_darkmode" align=middle width=18.696821549999992pt height=22.465723500000017pt/>. 
 
 The meta-learner that was used was a tree-based gradient boosting 
 algorithm. See paper for details on the implementation.
 
-## 
 
