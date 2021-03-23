@@ -8,12 +8,22 @@ pip install kaggle
 while getopts d: flag
 do
 	case "${flag}" in
-		d) dir=${OPTARG};;
+		d) save_dir=${OPTARG};;
 	esac
 
 done
 
-kaggle competitions download m5-forecasting-uncertainty -q
+if ! [[-d "$save_dir"]]
+then 
+	mkdir "$save_dir"
+fi
+	
+
+kaggle competitions download m5-forecasting-uncertainty -p "$save_dir" --force
+
+cd "$save_dir"
+unzip *.zip
+rm *.zip
 
 
 
